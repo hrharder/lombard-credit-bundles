@@ -15,6 +15,7 @@ contract LoanBundle is ERC20, Math {
 
     event ContractPaymentClaimed(address loanAddress, uint256 amountClaimed);
     event ContractPaymentClaimFailed(address loanAddress);
+    event PaymentClaimed(address claimeeAddress, uint256 valueClaimed);
 
     function claimPaymentForContract() public {
         for (uint256 i = 0; i < loanArray.length; i++) {
@@ -41,5 +42,6 @@ contract LoanBundle is ERC20, Math {
         );
         _burn(msg.sender, accountBalance);
         msg.sender.transfer(accountClaim);
+        emit PaymentClaimed(msg.sender, accountClaim);
     }
 }
