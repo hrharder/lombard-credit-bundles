@@ -1,5 +1,5 @@
 import { accounts, contract } from "@openzeppelin/test-environment";
-const { BN, ether, balance, constants, expectEvent, expectRevert } = require("@openzeppelin/test-helpers");
+const { BN, ether, balance, constants, expectEvent, expectRevert, time } = require("@openzeppelin/test-helpers");
 import { expect } from "chai";
 import "mocha";
 
@@ -8,17 +8,17 @@ const Loan = contract.fromArtifact("Loan");
 
 const bn = (n: any) => new BN(n);
 
-describe("Loan", async () => {
+describe.only("Loan", async () => {
     const [deployer, borrower, lender] = accounts;
 
     // Dummy parameters:
-    // - 10 ETH loan over 30 years, repayment amount 1.54 ETH (~3% APR)
-    // - Auction starts at 12 ETH and drops by 0.00023 ETH per block (~10 day mainnet auction)
+    // - 1 ETH loan over 30 years, repayment amount 1.54 ETH (~3% APR)
+    // - Auction starts at 12 ETH and drops by 0.000023 ETH per block (~10 day mainnet auction)
     // - 100 loan shares (6 decimals)
-    const defaultLoanAmount = new ether("10");
-    const defaultRepaymentAmount = new ether("15.4");
-    const defaultAuctionStartPrice = new ether("12");
-    const defaultAuctionDropRatePerBlock = new ether("0.00023");
+    const defaultLoanAmount = new ether("1");
+    const defaultRepaymentAmount = new ether("1.54");
+    const defaultAuctionStartPrice = new ether("1.2");
+    const defaultAuctionDropRatePerBlock = new ether("0.000023");
     const defaultLoanExpiry = bn(Math.floor(Date.now() / 1000) + 933120000);
     const defaultLoanShares = bn(100000000);
     const defaultLoanSharesDecimals = bn(6);
@@ -73,9 +73,9 @@ describe("Loan", async () => {
             ).to.be.true;
             expect((await loan.auctionStartBlock()).eq(bn(0)), "auction start not 0").to.be.true;
 
-            expect(await loan.loanBorrowed(), "loan borrowed").to.be.false;
+            expect(await loan.loanInitiated(), "loan borrowed").to.be.false;
             expect(await loan.auctionEnded(), "loan auction ended").to.be.false;
-            expect(await loan.loanRepayed(), "loan re-payed").to.be.false;
+            expect(await loan.loanRepaid(), "loan repaid").to.be.false;
             expect(await loan.loanFunded(), "loan funded").to.be.false;
         });
     });
@@ -151,7 +151,7 @@ describe("Loan", async () => {
         });
     });
 
-    describe("borrow", async () => {
+    describe("initiateLoan", async () => {
         let loan: any;
         const fundLoan = async () => loan.fundLoan({ from: lender, value: defaultLoanAmount });
 
@@ -177,12 +177,15 @@ describe("Loan", async () => {
         });
 
         it("should not allow the borrower to borrow if the loan isn't funded", async () => {
-            await expectRevert(loan.borrow({ from: borrower }), "loan unfunded");
+            await expectRevert(loan.initiateLoan({ from: borrower }), "loan unfunded");
         });
 
         it("should not allow the loan to begin if the borrower has not approved the loan contract", async () => {
             await fundLoan();
-            await expectRevert(loan.borrow({ from: borrower }), "ERC721: transfer caller is not owner nor approved");
+            await expectRevert(
+                loan.initiateLoan({ from: borrower }),
+                "ERC721: transfer caller is not owner nor approved",
+            );
         });
 
         it("should allow the loan to begin if the borrower has approved the loan contract and has the required NFT", async () => {
@@ -193,7 +196,7 @@ describe("Loan", async () => {
             expect(await collateralAsset.ownerOf(defaultCollateralAssetID)).to.eql(borrower);
 
             // anyone can initiate the loan, given the conditions are met
-            await loan.borrow({ from: deployer });
+            await loan.initiateLoan({ from: deployer });
             expect(await collateralAsset.ownerOf(defaultCollateralAssetID)).to.eql(loan.address);
             expect((await balance.current(borrower)).eq(borrowerEthBalanceBeforeLoan.add(defaultLoanAmount))).to.be
                 .true;
@@ -202,9 +205,168 @@ describe("Loan", async () => {
         it("should not allow the loan to be borrowed twice", async () => {
             await fundLoan();
             await collateralAsset.setApprovalForAll(loan.address, true, { from: borrower });
-            await loan.borrow({ from: deployer });
+            await loan.initiateLoan({ from: deployer });
             expect(await collateralAsset.ownerOf(defaultCollateralAssetID)).to.eql(loan.address);
-            await expectRevert(loan.borrow({ from: deployer }), "loan was already borrowed");
+            await expectRevert(loan.initiateLoan({ from: deployer }), "loan was already borrowed");
+        });
+    });
+
+    describe("initiateCollateralAuction (& all auction methods)", async () => {
+        let loan: any;
+        const getExpirationTime = async () => (await time.latest()).add(bn(100000));
+        const fundLoan = async () => loan.fundLoan({ from: lender, value: defaultLoanAmount });
+        const initiateLoan = async () => loan.initiateLoan({ from: deployer });
+        const startAuction = async () => loan.initiateCollateralAuction({ from: deployer });
+        const payOffLoan = async () => loan.reclaimCollateral({ from: borrower, value: defaultRepaymentAmount });
+        const borrowerApproveContract = async () =>
+            collateralAsset.setApprovalForAll(loan.address, true, { from: borrower });
+        const skipToEndOfLoan = async () => time.increaseTo((await loan.loanEndTime()).add(bn(100)));
+
+        beforeEach(async () => {
+            loan = await Loan.new(
+                "LOAN-A1",
+                "LA1",
+
+                // 100 shares with 6 decimals (e.g. 100.000000 total supply)
+                defaultLoanSharesDecimals,
+                defaultLoanShares,
+
+                collateralAsset.address,
+                defaultCollateralAssetID,
+                await getExpirationTime(),
+                borrower,
+                defaultLoanAmount,
+                defaultRepaymentAmount,
+                defaultAuctionStartPrice,
+                defaultAuctionDropRatePerBlock,
+                { from: deployer },
+            );
+        });
+
+        it("should not allow the auction to begin if the loan is not expired", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            expect((await loan.loanEndTime()).gt(time.latest())).to.be.true;
+            await expectRevert(startAuction(), "loan not ended");
+        });
+
+        it("should not allow the auction to begin if the loan is paid and expired", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await payOffLoan();
+            expect(await loan.loanRepaid(), "loan not paid").to.be.true;
+
+            await skipToEndOfLoan();
+            expect((await loan.loanEndTime()).lt(await time.latest()), "loan not expired").to.be.true;
+            await expectRevert(startAuction(), "loan is paid");
+        });
+
+        it("should allow the auction to begin if the loan is not paid and expired", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await skipToEndOfLoan();
+            expect((await balance.current(loan.address)).eq(bn(0))).to.be.true;
+            expect((await loan.loanEndTime()).gt(await time.latest())).to.be.false;
+            await startAuction();
+            expect((await loan.auctionStartBlock()).eq(await time.latestBlock())).to.be.true;
+        });
+
+        it("should have an initial auction price that matches the value include in the loan terms", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await skipToEndOfLoan();
+            await startAuction();
+            expect((await loan.getPrice()).eq(defaultAuctionStartPrice)).to.be.true;
+        });
+
+        it("should decrease the price by the correct amount each block", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await skipToEndOfLoan();
+            await startAuction();
+
+            expect((await loan.getPrice()).eq(defaultAuctionStartPrice)).to.be.true;
+            await time.advanceBlock();
+            await time.advanceBlock();
+            await time.advanceBlock();
+            expect((await loan.getPrice()).eq(defaultAuctionStartPrice.sub(defaultAuctionDropRatePerBlock.mul(bn(3)))));
+        });
+
+        it("should allow a bidder to purchase the collateral if they pay enough during an auction", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await skipToEndOfLoan();
+            await startAuction();
+
+            expect((await loan.getPrice()).eq(defaultAuctionStartPrice)).to.be.true;
+            await time.advanceBlock();
+            await time.advanceBlock();
+            await time.advanceBlock();
+            expect(await collateralAsset.ownerOf(defaultCollateralAssetID)).to.eql(loan.address);
+            await loan.buyCollateralDuringAuction({ from: lender, value: await loan.getPrice() });
+            expect(await collateralAsset.ownerOf(defaultCollateralAssetID)).to.eql(lender);
+        });
+
+        it("should not allow a bidder to purchase the collateral if they don't pay enough during an auction", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await skipToEndOfLoan();
+            await startAuction();
+            await time.advanceBlock();
+            await time.advanceBlock();
+            await time.advanceBlock();
+            await expectRevert(loan.buyCollateralDuringAuction({ from: lender, value: bn(10000) }), "insufficient bid");
+        });
+
+        it("should not allow a bidder to purchase the collateral if an auction is not underway yet", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await expectRevert(
+                loan.buyCollateralDuringAuction({ from: lender, value: new ether("2") }),
+                "auction not started",
+            );
+        });
+
+        it("should not allow a bidder to purchase the collateral if an auction has ended", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await skipToEndOfLoan();
+            await startAuction();
+
+            await time.advanceBlock();
+            await time.advanceBlock();
+            await time.advanceBlock();
+            await loan.buyCollateralDuringAuction({ from: lender, value: await loan.getPrice() });
+            await expectRevert(
+                loan.buyCollateralDuringAuction({ from: borrower, value: new ether("2") }),
+                "auction already ended",
+            );
+        });
+
+        it("should re-fund the bidder if they over-pay", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await skipToEndOfLoan();
+            await startAuction();
+
+            const price = await loan.getPrice();
+            const overpayAmount = (await loan.getPrice()).add(new ether("1"));
+            expect((await balance.current(loan.address)).eq(bn(0)), "balance not 0").to.be.true;
+            await loan.buyCollateralDuringAuction({
+                from: borrower,
+                value: price.add(overpayAmount),
+            });
+            expect((await balance.current(loan.address)).eq(price), "contract balance not equal price").to.be.true;
         });
     });
 });

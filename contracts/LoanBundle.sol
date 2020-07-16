@@ -34,7 +34,7 @@ contract LoanBundle is ERC20, Math {
         for (uint256 i = 0; i < loanArray.length; i++) {
             Loan loanToken = Loan(loanArray[i]);
             uint256 startBalance = address(this).balance;
-            if (loanToken.auctionEnded() || loanToken.loanRepayed()) {
+            if (loanToken.auctionEnded() || loanToken.loanRepaid()) {
                 loanToken.claimPayment();
                 uint256 endBalance = address(this).balance;
                 emit ContractPaymentClaimed(
