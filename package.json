@@ -1,0 +1,30 @@
+{
+  "name": "basilisk",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "compile": "oz compile",
+    "bct": "yarn build && yarn compile && yarn test",
+    "test": "mocha --exit --recursive './lib/*.test.js'",
+    "ganache": "ganache-cli --deterministic"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@openzeppelin/cli": "^2.8.2",
+    "@openzeppelin/contracts": "^2.5.1",
+    "@openzeppelin/test-helpers": "^0.5.6"
+  },
+  "devDependencies": {
+    "@openzeppelin/test-environment": "^0.1.4",
+    "@openzeppelin/test-helpers": "^0.5.6",
+    "@types/chai": "^4.2.11",
+    "@types/mocha": "^8.0.0",
+    "chai": "^4.2.0",
+    "ganache-cli": "^6.9.1",
+    "mocha": "^8.0.1",
+    "typescript": "^3.9.6"
+  }
+}

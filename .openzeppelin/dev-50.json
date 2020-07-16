@@ -1,0 +1,21 @@
+{
+  "contracts": {},
+  "solidityLibs": {},
+  "proxies": {
+    "basilisk/DummyERC721": [
+      {
+        "address": "0xc4CC602A7345518d0B7A84049d4Bc8575eBF3398",
+        "kind": "NonProxy",
+        "bytecodeHash": "9b74f0bc3dcbacb5ed7735c77f4f4e3592f2912d7d3af4e4a26425c394b83bf6"
+      }
+    ],
+    "basilisk/Loan": [
+      {
+        "address": "0xe704967449b57b2382B7FA482718748c13C63190",
+        "kind": "NonProxy",
+        "bytecodeHash": "0e70ce42be386b150a495fac168586572732993e7c5ba4abecdec20979ee592f"
+      }
+    ]
+  },
+  "manifestVersion": "2.2"
+}
