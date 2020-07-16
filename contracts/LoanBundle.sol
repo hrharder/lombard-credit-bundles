@@ -6,9 +6,22 @@ import "./Math.sol";
 import "./Loan.sol";
 
 contract LoanBundle is ERC20, Math {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+
     address payable[] public loanArray;
 
-    constructor(address payable[] memory _loanArray, uint256 _supply) public {
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        uint8 _decimals,
+        address payable[] memory _loanArray,
+        uint256 _supply
+    ) public {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
         loanArray = _loanArray;
         _mint(msg.sender, _supply);
     }
@@ -36,7 +49,7 @@ contract LoanBundle is ERC20, Math {
 
     function claimPayment() public {
         uint256 accountBalance = balanceOf(msg.sender);
-        require(accountBalance > 0, "token balance must be greater than zero")
+        require(accountBalance > 0, "token balance must be greater than zero");
         uint256 accountClaim = mul(
             accountBalance / totalSupply(),
             address(this).balance
