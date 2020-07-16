@@ -36,6 +36,7 @@ contract LoanBundle is ERC20, Math {
 
     function claimPayment() public {
         uint256 accountBalance = balanceOf(msg.sender);
+        require(accountBalance > 0, "token balance must be greater than zero")
         uint256 accountClaim = mul(
             accountBalance / totalSupply(),
             address(this).balance
