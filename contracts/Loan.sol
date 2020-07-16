@@ -22,11 +22,8 @@ contract Loan is ERC20, Math {
     uint256 public auctionStartBlock = 0;
 
     bool public loanBorrowed = false;
-
     bool public auctionEnded = false;
-
     bool public loanRepayed = false;
-
     bool public loanFunded = false;
 
     constructor(
@@ -58,6 +55,7 @@ contract Loan is ERC20, Math {
     }
 
     function fundLoan() public payable {
+        require(!loanFunded, "loan already funded");
         require(msg.value == loanAmount, "must send loan value when constructing loan contract");
         loanFunded = true;
         _mint(msg.sender, shares);
@@ -67,7 +65,7 @@ contract Loan is ERC20, Math {
         require(loanFunded, "loan unfunded");
         require(!loanBorrowed, "loan was already borrowed");
         IERC721 collateralToken = IERC721(collateralAsset);
-        collateralToken.transferFrom(msg.sender, address(this), collateralID);
+        collateralToken.transferFrom(borrower, address(this), collateralID);
         borrower.transfer(loanAmount);
         loanBorrowed = true;
         return true;
