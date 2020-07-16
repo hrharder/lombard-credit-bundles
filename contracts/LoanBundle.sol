@@ -6,53 +6,40 @@ import "./Math.sol";
 import "./Loan.sol";
 
 contract LoanBundle is ERC20, Math {
-    mapping(address => bool) public loanOnePayoutClaimed;
-    mapping(address => bool) public loanTwoPayoutClaimed;
+    address payable[] public loanArray;
 
-    uint256 loanOnePayout = 0;
-    uint256 loanTwoPayout = 0;
-
-    address loanOne;
-    address loanTwo;
-
-    constructor(
-        address _loanOne,
-        address _loanTwo,
-        uint256 _supply
-    ) public {
-        loanOne = _loanOne;
-        loanTwo = _loanTwo;
+    constructor(address payable[] memory _loanArray, uint256 _supply) public {
+        loanArray = _loanArray;
         _mint(msg.sender, _supply);
     }
 
-    function claimPaymentForContract(address payable loanAddress) public {
-        Loan loanToken = Loan(loanAddress);
-        uint256 startBalance = address(this).balance;
-        loanToken.claimPayment();
-        uint256 endBalance = address(this).balance;
-        require(endBalance > startBalance, "didn't claim any payment");
-        if (loanAddress == loanOne) {
-            loanOnePayout = sub(endBalance, startBalance);
-        } else if (loanAddress == loanTwo) {
-            loanTwoPayout = sub(endBalance, startBalance);
+    event ContractPaymentClaimed(address loanAddress, uint256 amountClaimed);
+    event ContractPaymentClaimFailed(address loanAddress);
+
+    function claimPaymentForContract() public {
+        for (uint256 i = 0; i < loanArray.length; i++) {
+            Loan loanToken = Loan(loanArray[i]);
+            uint256 startBalance = address(this).balance;
+            if (loanToken.auctionEnded() || loanToken.loanRepayed()) {
+                loanToken.claimPayment();
+                uint256 endBalance = address(this).balance;
+                emit ContractPaymentClaimed(
+                    loanArray[i],
+                    sub(endBalance, startBalance)
+                );
+            } else {
+                emit ContractPaymentClaimFailed(loanArray[i]);
+            }
         }
     }
 
     function claimPayment() public {
-        require(!loanOnePayoutClaimed[msg.sender] || !loanTwoPayoutClaimed[msg.sender], "payments already claimed");
-        require(loanOnePayout > 0 || loanTwoPayout > 0, "no payment to claim");
         uint256 accountBalance = balanceOf(msg.sender);
-        uint256 paymentAmount = 0;
-        if (loanOnePayout > 0 && !loanOnePayoutClaimed[msg.sender]) {
-            uint256 payoutOneClaim = mul(accountBalance / totalSupply(), loanOnePayout);
-            paymentAmount += payoutOneClaim;
-            loanOnePayoutClaimed[msg.sender] = true;
-        }
-        if (loanTwoPayout > 0 && !loanTwoPayoutClaimed[msg.sender]) {
-            uint256 payoutTwoClaim = mul(accountBalance / totalSupply(), loanTwoPayout);
-            paymentAmount += payoutTwoClaim;
-            loanTwoPayoutClaimed[msg.sender] = true;
-        }
-        msg.sender.transfer(paymentAmount);
+        uint256 accountClaim = mul(
+            accountBalance / totalSupply(),
+            address(this).balance
+        );
+        _burn(msg.sender, accountBalance);
+        msg.sender.transfer(accountClaim);
     }
 }
