@@ -8,6 +8,7 @@
     "compile": "oz compile",
     "bct": "yarn build && yarn compile && yarn test",
     "test": "mocha --exit --recursive './lib/*.test.js'",
+    "test:build": "tsc && mocha --exit --recursive './lib/*.test.js'",
     "ganache": "ganache-cli --deterministic"
   },
   "author": "",
