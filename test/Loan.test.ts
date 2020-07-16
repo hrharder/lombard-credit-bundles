@@ -361,22 +361,15 @@ describe.only("Loan", async () => {
 
             const price = await loan.getPrice();
             const overpayAmount = (await loan.getPrice()).add(new ether("1"));
-            console.log(
-                price.toString(),
-                (await balance.current(borrower)).toString(),
-                (await balance.current(loan.address)).toString(),
-            );
             expect((await balance.current(loan.address)).eq(bn(0)), "balance not 0").to.be.true;
             await loan.buyCollateralDuringAuction({
                 from: borrower,
                 value: price.add(overpayAmount),
             });
-            console.log(
-                price.toString(),
-                (await balance.current(borrower)).toString(),
-                (await balance.current(loan.address)).toString(),
-            );
-            expect((await balance.current(loan.address)).eq(price), "contract balance not equal price").to.be.true;
+            expect(
+                (await balance.current(loan.address)).eq(price.sub(defaultAuctionDropRatePerBlock.mul(bn(1)))),
+                "contract balance not equal price",
+            ).to.be.true;
         });
     });
 
