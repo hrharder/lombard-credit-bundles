@@ -361,12 +361,91 @@ describe.only("Loan", async () => {
 
             const price = await loan.getPrice();
             const overpayAmount = (await loan.getPrice()).add(new ether("1"));
+            console.log(
+                price.toString(),
+                (await balance.current(borrower)).toString(),
+                (await balance.current(loan.address)).toString(),
+            );
             expect((await balance.current(loan.address)).eq(bn(0)), "balance not 0").to.be.true;
             await loan.buyCollateralDuringAuction({
                 from: borrower,
                 value: price.add(overpayAmount),
             });
+            console.log(
+                price.toString(),
+                (await balance.current(borrower)).toString(),
+                (await balance.current(loan.address)).toString(),
+            );
             expect((await balance.current(loan.address)).eq(price), "contract balance not equal price").to.be.true;
+        });
+    });
+
+    describe("claimPayment", async () => {
+        let loan: any;
+        const getExpirationTime = async () => (await time.latest()).add(bn(100000));
+        const fundLoan = async () => loan.fundLoan({ from: lender, value: defaultLoanAmount });
+        const initiateLoan = async () => loan.initiateLoan({ from: deployer });
+        const startAuction = async () => loan.initiateCollateralAuction({ from: deployer });
+        const borrowerApproveContract = async () =>
+            collateralAsset.setApprovalForAll(loan.address, true, { from: borrower });
+        const skipToEndOfLoan = async () => time.increaseTo((await loan.loanEndTime()).add(bn(100)));
+
+        beforeEach(async () => {
+            loan = await Loan.new(
+                "LOAN-A1",
+                "LA1",
+
+                // 100 shares with 6 decimals (e.g. 100.000000 total supply)
+                defaultLoanSharesDecimals,
+                defaultLoanShares,
+
+                collateralAsset.address,
+                defaultCollateralAssetID,
+                await getExpirationTime(),
+                borrower,
+                defaultLoanAmount,
+                defaultRepaymentAmount,
+                defaultAuctionStartPrice,
+                defaultAuctionDropRatePerBlock,
+                { from: deployer },
+            );
+        });
+
+        it("should allow a holder of all shares to claim all value in the contract after an auction", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await skipToEndOfLoan();
+            await startAuction();
+            await loan.buyCollateralDuringAuction({ from: lender, value: await loan.getPrice() });
+
+            expect((await loan.totalSupply()).eq(await loan.balanceOf(lender))).to.be.true;
+            const lenderBalanceBefore = await balance.current(lender);
+            await loan.claimPayment({ from: lender });
+            expect((await balance.current(lender)).gt(lenderBalanceBefore)).to.be.true;
+            expect((await loan.totalSupply()).eq(bn(0))).to.be.true;
+        });
+
+        it("should not allow a user with no loan tokens to claim a reward", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await skipToEndOfLoan();
+            await startAuction();
+            await loan.buyCollateralDuringAuction({ from: lender, value: await loan.getPrice() });
+
+            expect(bn(0).eq(await loan.balanceOf(borrower))).to.be.true;
+            await expectRevert(loan.claimPayment({ from: borrower }), "sender holds no claim to payment");
+        });
+
+        it("should not allow any claim to be made if loan not expired", async () => {
+            await fundLoan();
+            await borrowerApproveContract();
+            await initiateLoan();
+            await expectRevert(
+                loan.claimPayment({ from: lender }),
+                "either loan wasn't replayed or auction hasn't ended",
+            );
         });
     });
 });
