@@ -188,9 +188,6 @@ contract Loan is ERC20, Math {
         _burn(msg.sender, accountBalance);
         msg.sender.transfer(accountClaim);
         emit LoanShareRedeemed(msg.sender, accountBalance, accountClaim);
-        //msg.sender.transfer(accountClaim);
-        //msg.sender.transfer(address(this).balance);
-        //emit LoanShareRedeemed(msg.sender, accountBalance, accountClaim);
     }
 
     // Discourage direct payment ouside of bidding or re-payment of loans.
