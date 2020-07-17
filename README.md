@@ -27,9 +27,10 @@ LCB combines these core loan primitives into loan/credit bundles. The bundles ar
 ### Mainnet
 
 ⚠️ **WARNING:** DO NOT USE except for experimentation. These contracts were written in under 24 hours by two solidity novices. ⚠️
+
 🚨 Expect fatal errors, vulnerabilities and 100% loss of funds if these contracts are used. 🚨
 
 | Contract name       | Notes                                               | Address Link                                                                                                            |
 | :------------------ | :-------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
 | `LoanFactory`       | Define terms and deploy `Loan` contracts.           | [`0xd5fa11b5e66ffe99a4026e0922102bba4bd3e5d2`](https://etherscan.io/address/0xd5fa11b5e66ffe99a4026e0922102bba4bd3e5d2) |
-| `LoanBundleFactory` | Deploy loan bundles of one or more `Loan` contract. | [`0xd5fa11b5e66ffe99a4026e0922102bba4bd3e5d2`](https://etherscan.io/address/0xd5fa11b5e66ffe99a4026e0922102bba4bd3e5d2) |
+| `LoanBundleFactory` | Deploy loan bundles of one or more `Loan` contract. | [`0x7b6e47974e006d1d5d0c47565a2682ed39b9bae6`](https://etherscan.io/address/0x7b6e47974e006d1d5d0c47565a2682ed39b9bae6) |
