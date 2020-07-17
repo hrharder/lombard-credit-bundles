@@ -20,4 +20,16 @@ LCB combines these core loan primitives into loan/credit bundles. The bundles ar
 4. The **borrower** grants approval to the newly created loan contract for the agreed upon ERC721 asset.
 5. The **borrower** retrieves the loan amount by calling `initiateLoan()` on the loan contract. This step will send the NFT asset to the loan contract and will send the principal amount to the **borrower**.
 
+**Note:** Anyone can call the `deployLoanToken()` method to create a new `Loan` contract, however in order for the loan to successfully initialize, the lender must fund the loan contract with ETH, and the borrower must approve the new Loan contract to spend the agreed upon collateral asset. Because the borrower must know the new Loan contract address in order to approve it, they have the ability to inspect the parameters of the loan before agreeing to it. These two transactions (funding from the lender, approval from the borrower) constitute the on-chain "agreement" between parties that allows the capital to be deployed to the borrower at the agreed upon rate.
+
 ## Deployments
+
+### Mainnet
+
+⚠️ **WARNING:** DO NOT USE except for experimentation. These contracts were written in under 24 hours by two solidity novices. ⚠️
+🚨 Expect fatal errors, vulnerabilities and 100% loss of funds if these contracts are used. 🚨
+
+| Contract name       | Notes                                               | Address Link                                                                                                            |
+| :------------------ | :-------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| `LoanFactory`       | Define terms and deploy `Loan` contracts.           | [`0xd5fa11b5e66ffe99a4026e0922102bba4bd3e5d2`](https://etherscan.io/address/0xd5fa11b5e66ffe99a4026e0922102bba4bd3e5d2) |
+| `LoanBundleFactory` | Deploy loan bundles of one or more `Loan` contract. | [`0xd5fa11b5e66ffe99a4026e0922102bba4bd3e5d2`](https://etherscan.io/address/0xd5fa11b5e66ffe99a4026e0922102bba4bd3e5d2) |
