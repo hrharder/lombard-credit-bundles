@@ -1,5 +1,5 @@
 import { accounts, contract } from "@openzeppelin/test-environment";
-const { BN, ether, balance, constants, expectEvent, expectRevert } = require("@openzeppelin/test-helpers");
+const { BN, ether, balance, constants, expectEvent, expectRevert, time } = require("@openzeppelin/test-helpers");
 import { expect } from "chai";
 import "mocha";
 
@@ -26,6 +26,7 @@ describe("LoanBundle", async () => {
 
     let collateralAsset: any = undefined;
 
+    let loanList: any[] = [];
     let loanAddressList: any = undefined;
     let loanBundle: any = undefined;
 
@@ -54,7 +55,7 @@ describe("LoanBundle", async () => {
 
     beforeEach(async function() {
         collateralAsset = await CollateralNFT.new({ from: deployer });
-        let loanList: any[] = [];
+        loanList = [];
         for (let i = 0; i < 5; i++) {
             const loan = await createNftAndLoan(i);
             loanList.push(loan);
@@ -79,6 +80,35 @@ describe("LoanBundle", async () => {
             expect((await loanBundle.decimals()).eq(defaultLoanSharesDecimals)).to.be.true;
             expect(await loanBundle.loanArray(1)).to.eql(loanAddressList[1]);
             expect((await loanBundle.balanceOf(deployer)).eq(bn(100_000_000))).to.be.true;
+        });
+    });
+
+    describe("claimPaymentForContract", async () => {
+        it("should correctly claim payment", async () => {
+            for (let i = 0; i < loanList.length; i++) {
+                await loanList[i].fundLoan({ from: lender, value: defaultLoanAmount });
+                await collateralAsset.approve(loanList[i].address, bn(i), { from: borrower });
+                await loanList[i].initiateLoan({ from: borrower });
+                await loanList[i].transfer(loanBundle.address, bn(10_000_000), { from: lender });
+            }
+            console.log(await loanList[1].balanceOf(loanBundle.address));
+            time.increaseTo(Math.floor(Date.now() / 1_000) + 30_536_000);
+            for (let i = 0; i < loanList.length; i++) {
+                await loanList[i].reclaimCollateral({ from: borrower, value: defaultRepaymentAmount });
+            }
+            // here
+            console.log(`eth balance of loan contract ${await balance.current(loanList[1].address)}`);
+            console.log(`token balance of loanBundle ${await loanList[1].balanceOf(loanBundle.address)}`);
+            console.log(`claimPaymentForContract`);
+            const loanBundleBalanceBefore = await balance.current(loanBundle.address);
+            await loanBundle.claimPaymentForContract({ from: lender });
+            console.log(`token balance of loanBundle ${await loanList[1].balanceOf(loanBundle.address)}`);
+            console.log(`eth balance of loanBundle ${await balance.current(loanBundle.address)}`);
+            console.log(`eth balance of loan contract ${await balance.current(loanList[1].address)}`);
+            expect((await balance.current(loanBundle.address)).gt(loanBundleBalanceBefore)).to.be.true;
+            const deployerBalanceBefore = await balance.current(deployer);
+            await loanBundle.claimPayment({ from: deployer });
+            expect((await balance.current(deployer)).gt(deployerBalanceBefore)).to.be.true;
         });
     });
 });

@@ -51,11 +51,13 @@ contract LoanBundle is ERC20, Math {
         uint256 accountBalance = balanceOf(msg.sender);
         require(accountBalance > 0, "token balance must be greater than zero");
         uint256 accountClaim = mul(
-            accountBalance / totalSupply(),
+            (accountBalance * (10**4)) / totalSupply(),
             address(this).balance
-        );
+        ) / ((10**4));
         _burn(msg.sender, accountBalance);
         msg.sender.transfer(accountClaim);
         emit PaymentClaimed(msg.sender, accountClaim);
     }
+
+    function() external payable {}
 }

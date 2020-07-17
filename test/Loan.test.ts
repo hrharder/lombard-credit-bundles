@@ -8,7 +8,7 @@ const Loan = contract.fromArtifact("Loan");
 
 const bn = (n: any) => new BN(n);
 
-describe.only("Loan", async () => {
+describe("Loan", async () => {
     const [deployer, borrower, lender] = accounts;
 
     // Dummy parameters:
@@ -26,7 +26,7 @@ describe.only("Loan", async () => {
     const defaultCollateralAssetID = bn(6);
     let collateralAsset: any = undefined;
 
-    beforeEach(async function() {
+    beforeEach(async function () {
         collateralAsset = await CollateralNFT.new({ from: deployer });
         await collateralAsset.mint(6, { from: borrower });
     });

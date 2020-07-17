@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./Math.sol";
 
 contract Loan is ERC20, Math {
-
     // ERC-20
     string public name;
     string public symbol;
@@ -33,7 +32,11 @@ contract Loan is ERC20, Math {
     event LoanFunded(address funder);
     event LoanInitiated(address initiator);
     event LoanRepaid(address repayer);
-    event LoanShareRedeemed(address redeemer, uint256 sharesRedeemed, uint256 payout);
+    event LoanShareRedeemed(
+        address redeemer,
+        uint256 sharesRedeemed,
+        uint256 payout
+    );
     event CollateralAuctionInitiated(address initiator, uint256 endingBlock);
     event ColalteralPurchased(address buyer, uint256 winningBid);
 
@@ -70,7 +73,10 @@ contract Loan is ERC20, Math {
     // Any user can fund the loan by sending exactly the loan amount in ether along with the method call.
     function fundLoan() public payable {
         require(!loanFunded, "loan already funded");
-        require(msg.value == loanAmount, "must send loan value when constructing loan contract");
+        require(
+            msg.value == loanAmount,
+            "must send loan value when constructing loan contract"
+        );
 
         loanFunded = true;
         _mint(msg.sender, shares);
@@ -99,11 +105,17 @@ contract Loan is ERC20, Math {
     function initiateCollateralAuction() public {
         require(loanInitiated, "loan never initiated");
         require(loanEndTime <= now, "loan not ended");
-        require(totalRequiredPayment < address(this).balance || !loanRepaid, "loan is paid");
+        require(
+            totalRequiredPayment < address(this).balance || !loanRepaid,
+            "loan is paid"
+        );
         require(!auctionEnded, "auction already ended");
 
         auctionStartBlock = block.number;
-        uint256 auctionEndingBlock = add(block.number, auctionStartPrice / auctionPerBlockPriceReduction);
+        uint256 auctionEndingBlock = add(
+            block.number,
+            auctionStartPrice / auctionPerBlockPriceReduction
+        );
         emit CollateralAuctionInitiated(msg.sender, auctionEndingBlock);
     }
 
@@ -146,7 +158,10 @@ contract Loan is ERC20, Math {
         require(auctionStartBlock == 0, "auction has started");
         require(!loanRepaid, "loan already repaid");
         require(loanInitiated, "loan never initiated");
-        require(address(this).balance >= totalRequiredPayment, "loan underpaid");
+        require(
+            address(this).balance >= totalRequiredPayment,
+            "loan underpaid"
+        );
 
         loanRepaid = true;
         _collateralToken.transferFrom(address(this), borrower, collateralID);
@@ -158,15 +173,24 @@ contract Loan is ERC20, Math {
     //
     // Callers of this function must hold shares in the loan, and all shares held will be burned (no partial claims).
     function claimPayment() public {
-        require(auctionEnded || loanRepaid, "either loan wasn't replayed or auction hasn't ended");
+        require(
+            auctionEnded || loanRepaid,
+            "either loan wasn't replayed or auction hasn't ended"
+        );
         require(balanceOf(msg.sender) > 0, "sender holds no claim to payment");
         require(address(this).balance > 0, "no payment to claim");
 
         uint256 accountBalance = balanceOf(msg.sender);
-        uint256 accountClaim = mul(accountBalance / totalSupply(), address(this).balance);
+        uint256 accountClaim = mul(
+            (accountBalance * (10**4)) / totalSupply(),
+            address(this).balance
+        ) / ((10**4));
         _burn(msg.sender, accountBalance);
         msg.sender.transfer(accountClaim);
         emit LoanShareRedeemed(msg.sender, accountBalance, accountClaim);
+        //msg.sender.transfer(accountClaim);
+        //msg.sender.transfer(address(this).balance);
+        //emit LoanShareRedeemed(msg.sender, accountBalance, accountClaim);
     }
 
     // Discourage direct payment ouside of bidding or re-payment of loans.
