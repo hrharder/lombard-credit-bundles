@@ -13,6 +13,7 @@ contract LoanBundleFactory {
         LoanBundle newLoanBundle = (
             new LoanBundle(_name, _symbol, _decimals, _loanArray, _supply)
         );
+        newLoanBundle.transfer(msg.sender, totalSupply);
         return address(newLoanBundle);
     }
 }
